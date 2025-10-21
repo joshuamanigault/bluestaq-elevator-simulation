@@ -84,7 +84,7 @@ public class ElevatorSimulation {
                 try {
                     synchronized (this) {
                         if (!hasPendingRequests()) {
-                            dir = Direction.IDLE;
+                            direction = Direction.IDLE;
                             // wait for new requests
                             wait();
                             if (shutdown) {
@@ -95,7 +95,7 @@ public class ElevatorSimulation {
 
                     // Process up stops first if any, then down stops
                     if (!upStops.isEmpty()) {
-                        dir = Direction.UP;
+                        direction = Direction.UP;
                         Integer nextStop = upStops.first();
 
                         while (currentFloor < nextStop) {
@@ -108,7 +108,7 @@ public class ElevatorSimulation {
                         }
                         openDoors();
                     } else if (!downStops.isEmpty()) {
-                        dir = Direction.DOWN;
+                        direction = Direction.DOWN;
                         Integer nextStop = downStops.first();
 
                         while (currentFloor > nextStop) {
@@ -128,10 +128,105 @@ public class ElevatorSimulation {
             System.out.println("[Elevator " + id + "] shutting down.");
         }
 
+        synchronized void shutdown() {
+            this.shutdown = true;
+            notifyAll();
+        }
+
+        synchronized int getCurrentFloor() {
+            return currentFloor;
+        }
+
+        synchronized Direction getDirection() {
+            return direction;
+        }
+
+        public String toString() {
+            return "Elevator[" + id + ", floor=" + currentFloor + ", direction=" + direction + ", upStops=" + upStops + ", downStops=" + downStops + "]";
+        }
+    }
+
+    // Assigns requests to the best elevator
+    static class ElevatorController {
+        private final List<Elevator> elevators = new ArrayList<>();
+        private final List<Thread> elevatorThreads = new ArrayList<>();
+
+        ElevatorController(int n, int startFloor) {
+            for (int i = 0; i < n; i++) {
+                Elevator e = new Elevator(i + 1, startFloor);
+                elevators.add(e);
+                Thread t = new Thread(e, "Elevator-" + (i + 1));
+                t.setDaemon(true);
+                elevatorThreads.add(t);
+                t.start();
+            }
+        }
+
+        void externalRequest(int floor, Direction direction) {
+            Elevator best = null;
+            int bestDist = Integer.MAX_VALUE;
+            for (Elevator e : elevators) {
+                int dist = Math.abs(e.getCurrentFloor() - floor);
+                if (!e.hasPendingRequests() && dist < bestDist) {
+                    best = e;
+                    bestDist = dist;
+                }
+            }
+           // If there is no idle elevator, pick the one with the shortest distance away
+           if (best == null) {
+                for (Elevator e : elevators) {
+                    int dist = Math.abs(e.getCurrentFloor() - floor);
+                    if (dist < bestDist) {
+                        best = e;
+                        bestDist = dist;
+                    }
+                }
+           }
+
+           System.out.println("[Controller] assigning external request at floor " + floor + " to elevator " + best.id);
+           if (best != null) {
+                best.addRequest(floor);
+           }
+        }
 
 
+        void internalRequest(int elevatorId, int floor) {
+            Elevator e =  elevators.get(elevatorId - 1);
+            System.out.println("[Controller] internal request: elevator " + elevatorId + " to floor " + floor);
+            e.addRequest(floor);
+        }
 
+        void shutdown() {
+            for (Elevator e: elevators) {
+                e.shutdown();
+            }
+        }
 
+        void printStatus() {
+            for (Elevator e: elevators) {
+                System.out.println(e);
+            }
+        }
+    }
 
+    public static void main(String[] args) throws InterruptedException {
+        System.out.println("Starting Elevator Simulation");
+        ElevatorController controller = new ElevatorController(3, 1);
+
+        controller.externalRequest(5, Direction.UP);
+        Thread.sleep(1000);
+        controller.externalRequest(3, Direction.DOWN);
+        Thread.sleep(500);
+        controller.internalRequest(1, 7);
+        Thread.sleep(2000);
+        controller.externalRequest(2, Direction.UP);
+        Thread.sleep(1000);
+        controller.internalRequest(2, 1);
+
+        // Let the simulation run for a while
+        Thread.sleep(15000);
+
+        controller.printStatus();
+        controller.shutdown();
     }
 }
