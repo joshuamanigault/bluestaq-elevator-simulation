@@ -230,3 +230,27 @@ public class ElevatorSimulation {
         controller.shutdown();
     }
 }
+
+/*
+Assumptions:
+-Elevators start at floor 1.
+-Elevator travel time between floors is simulated with Thread.sleep(400) and is consistent.
+-Simple assignment strategy: idle elevators are prioritized, otherwise the closest elevator is chosen.
+
+Features Implemented: 
+-Multiple elevators operating concurrently.
+-Per elevator request queues for up and down stops.
+-Console logging of elevator movements and door operations.
+-Internal and external request handling.
+-Shutdown mechanism for elevators
+
+Limitations/Not Implemented:
+-No advanced grouping of requests or optimization strategies.
+-No handling of edge cases like invalid floor requests.
+-No handling of capacity, maintenance mode, or emergency situations.
+-No handling of weight limits
+-No GUI
+-There is no scheduling fairness or peak time handling.
+-Floor bounds are not enforced.
+-External requests do not specify direction beyond UP/DOWN.
+*/
